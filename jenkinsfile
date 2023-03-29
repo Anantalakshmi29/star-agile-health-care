@@ -1,0 +1,46 @@
+pipeline {
+  agent any
+
+  tools {
+      maven 'M2_HOME'
+    }
+  stages {
+    
+    stage('Checkout') {
+       steps {
+         echo 'Checkout the code from GitRepo'
+         git 'https://github.com/Anantalakshmi29/star-agile-health-care.git'
+	 }
+       }
+    stage('Build the Application'){
+        steps {
+	echo "Cleaning... Compiling...Testing... Packaging..."
+	sh 'mvn clean package'
+            }
+          }
+    stage('Publish Reports') {
+        steps {
+	publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: '/var/lib/jenkins/workspace/medicure project/target/surefire-reports', reportFiles: 'index.html', reportName: 'HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+	}
+	}
+    stage('Docker Image Creation') {
+        steps {
+	sh 'docker build -t anantalakshmi29/medicure:latest .'
+        }
+      }
+    stage('Push Image to DockerHub') {
+      steps {
+     withCredentials([usernamePassword(credentialsId: 'docker-hub', passwordVariable: 'dockerHubPassword', usernameVariable: 'dockerHubUser')]) {
+      sh "docker login -u ${env.dockerHubUser} -p ${env.dockerHubPassword}"
+      sh 'docker push anantalakshmi29/medicure:latest'
+      }
+      }
+      }
+      stage('Deploy using Ansible') {
+        steps {
+	 ansiblePlaybook credentialsId: 'prod-server', disableHostKeyChecking: true, installation: 'ansible', inventory: '/etc/ansible/hosts', playbook: 'ansible-playbook.yml'
+        }
+      }
+      }
+      }
+
